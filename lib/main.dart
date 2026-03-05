@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'models.dart';
+import 'statistics_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,94 +21,122 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      home: const BalancePage(),
+      home: const AppShell(),
     );
   }
 }
 
-class Category {
-  final String name;
-  final IconData icon;
-  final Color color;
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
 
-  const Category({required this.name, required this.icon, required this.color});
+  @override
+  State<AppShell> createState() => _AppShellState();
 }
 
-const List<Category> kDefaultCategories = [
-  Category(name: 'Здоровье', icon: Icons.favorite, color: Color(0xFFE53935)),
-  Category(name: 'Досуг', icon: Icons.beach_access, color: Color(0xFF00ACC1)),
-  Category(name: 'Дом', icon: Icons.home, color: Color(0xFFFF7043)),
-  Category(name: 'Кафе', icon: Icons.restaurant, color: Color(0xFF8E24AA)),
-  Category(name: 'Образование', icon: Icons.school, color: Color(0xFF1E88E5)),
-  Category(name: 'Подарки', icon: Icons.card_giftcard, color: Color(0xFFEC407A)),
-  Category(name: 'Продукты', icon: Icons.shopping_basket, color: Color(0xFF43A047)),
-];
+class _AppShellState extends State<AppShell> {
+  int _index = 0;
+  List<Transaction> _transactions = [];
 
-const List<Category> kAllCategories = [
-  Category(name: 'Здоровье', icon: Icons.favorite, color: Color(0xFFE53935)),
-  Category(name: 'Досуг', icon: Icons.beach_access, color: Color(0xFF00ACC1)),
-  Category(name: 'Дом', icon: Icons.home, color: Color(0xFFFF7043)),
-  Category(name: 'Кафе', icon: Icons.restaurant, color: Color(0xFF8E24AA)),
-  Category(name: 'Образование', icon: Icons.school, color: Color(0xFF1E88E5)),
-  Category(name: 'Подарки', icon: Icons.card_giftcard, color: Color(0xFFEC407A)),
-  Category(name: 'Продукты', icon: Icons.shopping_basket, color: Color(0xFF43A047)),
-  Category(name: 'Семья', icon: Icons.people, color: Color(0xFFFF7043)),
-  Category(name: 'Спорт', icon: Icons.fitness_center, color: Color(0xFF1565C0)),
-  Category(name: 'Транспорт', icon: Icons.directions_bus, color: Color(0xFF546E7A)),
-  Category(name: 'Кофе', icon: Icons.local_cafe, color: Color(0xFF6D4C41)),
-  Category(name: 'Игры', icon: Icons.sports_esports, color: Color(0xFF3949AB)),
-  Category(name: 'Такси', icon: Icons.local_taxi, color: Color(0xFFF9A825)),
-  Category(name: 'Долг', icon: Icons.account_balance_wallet, color: Color(0xFFC62828)),
-  Category(name: 'Путешествия', icon: Icons.flight, color: Color(0xFF00838F)),
-  Category(name: 'Одежда', icon: Icons.checkroom, color: Color(0xFFD81B60)),
-  Category(name: 'Красота', icon: Icons.face, color: Color(0xFFAD1457)),
-  Category(name: 'Животные', icon: Icons.pets, color: Color(0xFF5D4037)),
-  Category(name: 'Авто', icon: Icons.directions_car, color: Color(0xFF455A64)),
-  Category(name: 'Связь', icon: Icons.phone, color: Color(0xFF00695C)),
-  Category(name: 'Аптека', icon: Icons.local_pharmacy, color: Color(0xFF2E7D32)),
-  Category(name: 'Кино', icon: Icons.movie, color: Color(0xFF6A1B9A)),
-];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('transactions');
+    if (raw != null) {
+      final list = jsonDecode(raw) as List;
+      setState(() {
+        _transactions = list
+            .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+            .toList();
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'transactions',
+      jsonEncode(_transactions.map((t) => t.toJson()).toList()),
+    );
+  }
+
+  void _add(Transaction t) {
+    setState(() => _transactions.add(t));
+    _save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _index,
+        children: [
+          BalancePage(transactions: _transactions, onAdd: _add),
+          StatisticsPage(transactions: _transactions),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Главная',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Анализ',
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class BalancePage extends StatefulWidget {
-  const BalancePage({super.key});
+  final List<Transaction> transactions;
+  final void Function(Transaction) onAdd;
+
+  const BalancePage({
+    super.key,
+    required this.transactions,
+    required this.onAdd,
+  });
 
   @override
   State<BalancePage> createState() => _BalancePageState();
 }
 
 class _BalancePageState extends State<BalancePage> {
-  double _balance = 0.0;
   bool _isIncome = false;
   final TextEditingController _amountController = TextEditingController();
   Category? _selectedCategory;
   String _selectedDate = 'Сегодня';
   final List<Category> _extraCategories = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadBalance();
-  }
-
-  Future<void> _loadBalance() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _balance = prefs.getDouble('balance') ?? 0.0;
-    });
-  }
-
-  Future<void> _saveBalance() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('balance', _balance);
-  }
+  double get _balance => widget.transactions.fold(
+        0.0,
+        (sum, t) => sum + (t.isIncome ? t.amount : -t.amount),
+      );
 
   void _apply() {
     final input = double.tryParse(_amountController.text.replaceAll(',', '.'));
-    if (input == null || input <= 0) return;
-    setState(() {
-      _balance += _isIncome ? input : -input;
-    });
-    _saveBalance();
+    if (input == null || input <= 0 || _selectedCategory == null) return;
+    widget.onAdd(Transaction(
+      amount: input,
+      isIncome: _isIncome,
+      categoryName: _selectedCategory!.name,
+      categoryIconCode: _selectedCategory!.icon.codePoint,
+      categoryFontFamily: _selectedCategory!.icon.fontFamily ?? 'MaterialIcons',
+      categoryColor: _selectedCategory!.color.value,
+      date: _selectedDate,
+    ));
     _amountController.clear();
   }
 

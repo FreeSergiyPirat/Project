@@ -59,6 +59,28 @@ const List<Category> kDefaultCategories = [
   Category(name: 'Продукты', icon: Icons.shopping_basket, color: Color(0xFF43A047)),
 ];
 
+const List<Category> kDefaultIncomeCategories = [
+  Category(name: 'Зарплата', icon: Icons.credit_card, color: Color(0xFF2E7D32)),
+  Category(name: 'Проценты', icon: Icons.trending_up, color: Color(0xFF00695C)),
+  Category(name: 'Выигрыш', icon: Icons.emoji_events, color: Color(0xFF1565C0)),
+  Category(name: 'Возврат долга', icon: Icons.reply, color: Color(0xFF0277BD)),
+];
+
+const List<Category> kAllIncomeCategories = [
+  Category(name: 'Зарплата', icon: Icons.credit_card, color: Color(0xFF2E7D32)),
+  Category(name: 'Проценты', icon: Icons.trending_up, color: Color(0xFF00695C)),
+  Category(name: 'Выигрыш', icon: Icons.emoji_events, color: Color(0xFF1565C0)),
+  Category(name: 'Возврат долга', icon: Icons.reply, color: Color(0xFF0277BD)),
+  Category(name: 'Фриланс', icon: Icons.laptop, color: Color(0xFF1B5E20)),
+  Category(name: 'Аренда', icon: Icons.home_work, color: Color(0xFF004D40)),
+  Category(name: 'Дивиденды', icon: Icons.show_chart, color: Color(0xFF01579B)),
+  Category(name: 'Подарок', icon: Icons.card_giftcard, color: Color(0xFF1A237E)),
+  Category(name: 'Продажа', icon: Icons.sell, color: Color(0xFF006064)),
+  Category(name: 'Стипендия', icon: Icons.school, color: Color(0xFF33691E)),
+  Category(name: 'Пособие', icon: Icons.account_balance, color: Color(0xFF004D40)),
+  Category(name: 'Другое', icon: Icons.more_horiz, color: Color(0xFF37474F)),
+];
+
 const List<Category> kAllCategories = [
   Category(name: 'Здоровье', icon: Icons.favorite, color: Color(0xFFE53935)),
   Category(name: 'Досуг', icon: Icons.beach_access, color: Color(0xFF00ACC1)),

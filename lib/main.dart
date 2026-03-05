@@ -119,6 +119,7 @@ class _BalancePageState extends State<BalancePage> {
   Category? _selectedCategory;
   String _selectedDate = 'Сегодня';
   final List<Category> _extraCategories = [];
+  final List<Category> _extraIncomeCategories = [];
 
   double get _balance => widget.transactions.fold(
         0.0,
@@ -143,14 +144,22 @@ class _BalancePageState extends State<BalancePage> {
   Future<void> _openCategoryPicker() async {
     final result = await Navigator.push<Category>(
       context,
-      MaterialPageRoute(builder: (_) => const CategoryPickerPage()),
+      MaterialPageRoute(
+          builder: (_) => CategoryPickerPage(isIncome: _isIncome)),
     );
     if (result != null) {
       setState(() {
         _selectedCategory = result;
-        if (!kDefaultCategories.any((c) => c.name == result.name) &&
-            !_extraCategories.any((c) => c.name == result.name)) {
-          _extraCategories.add(result);
+        if (_isIncome) {
+          if (!kDefaultIncomeCategories.any((c) => c.name == result.name) &&
+              !_extraIncomeCategories.any((c) => c.name == result.name)) {
+            _extraIncomeCategories.add(result);
+          }
+        } else {
+          if (!kDefaultCategories.any((c) => c.name == result.name) &&
+              !_extraCategories.any((c) => c.name == result.name)) {
+            _extraCategories.add(result);
+          }
         }
       });
     }
@@ -177,8 +186,9 @@ class _BalancePageState extends State<BalancePage> {
     super.dispose();
   }
 
-  List<Category> get _displayCategories =>
-      [...kDefaultCategories, ..._extraCategories];
+  List<Category> get _displayCategories => _isIncome
+      ? [...kDefaultIncomeCategories, ..._extraIncomeCategories]
+      : [...kDefaultCategories, ..._extraCategories];
 
   @override
   Widget build(BuildContext context) {
@@ -228,13 +238,19 @@ class _BalancePageState extends State<BalancePage> {
                             label: 'Доходы',
                             selected: _isIncome,
                             color: Colors.green.shade600,
-                            onTap: () => setState(() => _isIncome = true),
+                            onTap: () => setState(() {
+                              _isIncome = true;
+                              _selectedCategory = null;
+                            }),
                           ),
                           _SegmentButton(
                             label: 'Расходы',
                             selected: !_isIncome,
                             color: Colors.red.shade600,
-                            onTap: () => setState(() => _isIncome = false),
+                            onTap: () => setState(() {
+                              _isIncome = false;
+                              _selectedCategory = null;
+                            }),
                           ),
                         ],
                       ),
@@ -265,6 +281,7 @@ class _BalancePageState extends State<BalancePage> {
                       onSelect: (cat) =>
                           setState(() => _selectedCategory = cat),
                       onMore: _openCategoryPicker,
+                      isIncome: _isIncome,
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -348,12 +365,14 @@ class _CategoryGrid extends StatelessWidget {
   final Category? selected;
   final void Function(Category) onSelect;
   final VoidCallback onMore;
+  final bool isIncome;
 
   const _CategoryGrid({
     required this.categories,
     required this.selected,
     required this.onSelect,
     required this.onMore,
+    required this.isIncome,
   });
 
   @override
@@ -370,7 +389,7 @@ class _CategoryGrid extends StatelessWidget {
       itemCount: categories.length + 1,
       itemBuilder: (context, i) {
         if (i == categories.length) {
-          return _MoreButton(onTap: onMore);
+          return _MoreButton(onTap: onMore, isIncome: isIncome);
         }
         final cat = categories[i];
         return _CategoryItem(
@@ -443,11 +462,14 @@ class _CategoryItem extends StatelessWidget {
 
 class _MoreButton extends StatelessWidget {
   final VoidCallback onTap;
+  final bool isIncome;
 
-  const _MoreButton({required this.onTap});
+  const _MoreButton({required this.onTap, required this.isIncome});
 
   @override
   Widget build(BuildContext context) {
+    final color =
+        isIncome ? const Color(0xFF2E7D32) : const Color(0xFFBDBDBD);
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -456,9 +478,9 @@ class _MoreButton extends StatelessWidget {
           Container(
             width: 54,
             height: 54,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFFBDBDBD),
+              color: color,
             ),
             child: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
@@ -560,7 +582,9 @@ class _DatePickerBar extends StatelessWidget {
 }
 
 class CategoryPickerPage extends StatefulWidget {
-  const CategoryPickerPage({super.key});
+  final bool isIncome;
+
+  const CategoryPickerPage({super.key, required this.isIncome});
 
   @override
   State<CategoryPickerPage> createState() => _CategoryPickerPageState();
@@ -570,7 +594,10 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
   String _query = '';
   final TextEditingController _searchController = TextEditingController();
 
-  List<Category> get _filtered => kAllCategories
+  List<Category> get _sourceCategories =>
+      widget.isIncome ? kAllIncomeCategories : kAllCategories;
+
+  List<Category> get _filtered => _sourceCategories
       .where((c) => c.name.toLowerCase().contains(_query.toLowerCase()))
       .toList();
 
@@ -584,6 +611,7 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
     showDialog(
       context: context,
       builder: (_) => _CreateCategoryDialog(
+        isIncome: widget.isIncome,
         onCreated: (cat) {
           Navigator.pop(context);
           Navigator.pop(context, cat);
@@ -595,12 +623,16 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final accentColor =
+        widget.isIncome ? Colors.green.shade700 : scheme.primary;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Добавить категорию'),
+        title: Text(
+            widget.isIncome ? 'Категория дохода' : 'Добавить категорию'),
         centerTitle: true,
         elevation: 0,
+        foregroundColor: widget.isIncome ? Colors.green.shade800 : null,
       ),
       body: Column(
         children: [
@@ -659,13 +691,17 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
               height: 50,
               child: OutlinedButton.icon(
                 onPressed: _showCreateDialog,
-                icon: const Icon(Icons.add),
-                label: const Text(
+                icon: Icon(Icons.add, color: accentColor),
+                label: Text(
                   'Создать',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: accentColor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -681,8 +717,10 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
 
 class _CreateCategoryDialog extends StatefulWidget {
   final void Function(Category) onCreated;
+  final bool isIncome;
 
-  const _CreateCategoryDialog({required this.onCreated});
+  const _CreateCategoryDialog(
+      {required this.onCreated, required this.isIncome});
 
   @override
   State<_CreateCategoryDialog> createState() =>
@@ -691,8 +729,16 @@ class _CreateCategoryDialog extends StatefulWidget {
 
 class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   final TextEditingController _nameController = TextEditingController();
-  Color _selectedColor = const Color(0xFF1E88E5);
+  late Color _selectedColor;
   IconData _selectedIcon = Icons.star;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedColor = widget.isIncome
+        ? const Color(0xFF2E7D32)
+        : const Color(0xFF1E88E5);
+  }
 
   static const _colors = [
     Color(0xFFE53935), Color(0xFF43A047), Color(0xFF1E88E5),

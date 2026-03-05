@@ -5,6 +5,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
 import 'statistics_page.dart';
 
+const _kPrimary = Color(0xFF6C5DD3);
+const _kPrimaryLight = Color(0xFFC1B9F9);
+const _kBg = Color(0xFFF8F9FE);
+const _kCard = Color(0xFFFFFFFF);
+const _kText = Color(0xFF1A1D2E);
+const _kTextSub = Color(0xFF9BA3AF);
+
 void main() {
   runApp(const MyApp());
 }
@@ -18,7 +25,11 @@ class MyApp extends StatelessWidget {
       title: 'Balance Tracker',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: _kPrimary,
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: _kBg,
         useMaterial3: true,
       ),
       home: const AppShell(),
@@ -34,10 +45,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int _index = 0;
+  int _visualIndex = 0;
   List<Transaction> _transactions = [];
   List<Account> _accounts = [const Account(id: 'main', name: 'Основной')];
   String _currentAccountId = 'main';
+
+  int get _pageIndex => _visualIndex == 2 ? 1 : 0;
 
   Account get _currentAccount => _accounts.firstWhere(
         (a) => a.id == _currentAccountId,
@@ -106,11 +119,97 @@ class _AppShellState extends State<AppShell> {
     _save();
   }
 
+  void _showWalletsSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WalletsSheet(
+        accounts: _accounts,
+        transactions: _transactions,
+        currentAccountId: _currentAccountId,
+        onSelect: (acc) {
+          Navigator.pop(context);
+          _selectAccount(acc);
+          setState(() => _visualIndex = 0);
+        },
+        onAddTap: () {
+          Navigator.pop(context);
+          _showAddAccountShellDialog();
+        },
+      ),
+    );
+  }
+
+  void _showAddAccountShellDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: _kCard,
+        title: const Text('Новый счет',
+            style: TextStyle(color: _kText, fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Название счета',
+            hintStyle: const TextStyle(color: _kTextSub),
+            filled: true,
+            fillColor: _kBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child:
+                const Text('Отмена', style: TextStyle(color: _kTextSub)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [_kPrimary, _kPrimaryLight]),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  final name = ctrl.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.pop(context);
+                  _addAccount(name);
+                  setState(() => _visualIndex = 0);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text('Создать',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _kBg,
       body: IndexedStack(
-        index: _index,
+        index: _pageIndex,
         children: [
           BalancePage(
             transactions: _currentTransactions,
@@ -123,21 +222,103 @@ class _AppShellState extends State<AppShell> {
           StatisticsPage(transactions: _currentTransactions),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Главная',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Анализ',
+      bottomNavigationBar: _BottomNavBar(
+        selectedIndex: _visualIndex,
+        onTap: (i) {
+          if (i == 1) {
+            _showWalletsSheet();
+          } else {
+            setState(() => _visualIndex = i);
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _BottomNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final void Function(int) onTap;
+
+  const _BottomNavBar({
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (Icons.home_rounded, Icons.home_outlined, 'Главная'),
+      (Icons.account_balance_wallet_rounded,
+          Icons.account_balance_wallet_outlined, 'Кошельки'),
+      (Icons.bar_chart_rounded, Icons.bar_chart_outlined, 'Аналитика'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: _kPrimary.withOpacity(0.10),
+            blurRadius: 30,
+            offset: const Offset(0, -6),
           ),
         ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(items.length, (i) {
+              final isSelected = selectedIndex == i;
+              final (activeIcon, inactiveIcon, label) = items[i];
+              return GestureDetector(
+                onTap: () => onTap(i),
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _kPrimary.withOpacity(0.12)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSelected ? activeIcon : inactiveIcon,
+                        color: isSelected ? _kPrimary : _kTextSub,
+                        size: 24,
+                      ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        child: isSelected
+                            ? Row(children: [
+                                const SizedBox(width: 6),
+                                Text(
+                                  label,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: _kPrimary,
+                                  ),
+                                ),
+                              ])
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -198,8 +379,9 @@ class _BalancePageState extends State<BalancePage> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      backgroundColor: _kCard,
       builder: (_) => _AccountSelectorSheet(
         accounts: widget.accounts,
         currentAccountId: widget.currentAccount.id,
@@ -216,28 +398,58 @@ class _BalancePageState extends State<BalancePage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Новый счет'),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: _kCard,
+        title: const Text(
+          'Новый счет',
+          style: TextStyle(color: _kText, fontWeight: FontWeight.w700),
+        ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Название счета',
-            border: OutlineInputBorder(),
+            hintStyle: const TextStyle(color: _kTextSub),
+            filled: true,
+            fillColor: _kBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+            child: const Text('Отмена', style: TextStyle(color: _kTextSub)),
           ),
-          FilledButton(
-            onPressed: () {
-              final name = ctrl.text.trim();
-              if (name.isEmpty) return;
-              Navigator.pop(context);
-              widget.onAddAccount(name);
-            },
-            child: const Text('Создать'),
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [_kPrimary, _kPrimaryLight]),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  final name = ctrl.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.pop(context);
+                  widget.onAddAccount(name);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text('Создать',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -295,75 +507,173 @@ class _BalancePageState extends State<BalancePage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final isInc = _isIncome;
+    final gradColors = isInc
+        ? [const Color(0xFF43A047), const Color(0xFF81C784)]
+        : [const Color(0xFFE53935), const Color(0xFFEF9A9A)];
     final actionColor =
-        _isIncome ? Colors.green.shade600 : Colors.red.shade600;
+        isInc ? const Color(0xFF43A047) : const Color(0xFFE53935);
 
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: _kBg,
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: _showAccountSheet,
-                      behavior: HitTestBehavior.opaque,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.currentAccount.name,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: scheme.onSurface,
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Привет, Пользователь!',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: _kText,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Управляй своими финансами',
+                                style:
+                                    TextStyle(fontSize: 13, color: _kTextSub),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _showAccountSheet,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _kCard,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.06),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  widget.currentAccount.name,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: _kPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(Icons.keyboard_arrow_down,
+                                    color: _kPrimary, size: 18),
+                              ],
                             ),
                           ),
-                          Icon(
-                            Icons.keyboard_arrow_down,
-                            color: scheme.onSurface.withOpacity(0.7),
-                            size: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_kPrimary, _kPrimaryLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _kPrimary.withOpacity(0.40),
+                            blurRadius: 30,
+                            offset: const Offset(0, 14),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Текущий баланс',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${_balance >= 0 ? '+' : ''}${_balance.toStringAsFixed(2)} ₽',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.currentAccount.name,
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.22),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add_rounded,
+                              color: Colors.white,
+                              size: 30,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Баланс',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: scheme.onSurface.withOpacity(0.55),
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_balance >= 0 ? '+' : ''}${_balance.toStringAsFixed(2)} ₽',
-                      style: TextStyle(
-                        fontSize: 46,
-                        fontWeight: FontWeight.bold,
-                        color: _balance >= 0
-                            ? Colors.green.shade600
-                            : Colors.red.shade600,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     Container(
                       decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
+                        color: _kCard,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           _SegmentButton(
                             label: 'Доходы',
                             selected: _isIncome,
-                            color: Colors.green.shade600,
+                            color: const Color(0xFF43A047),
                             onTap: () => setState(() {
                               _isIncome = true;
                               _selectedCategory = null;
@@ -372,7 +682,7 @@ class _BalancePageState extends State<BalancePage> {
                           _SegmentButton(
                             label: 'Расходы',
                             selected: !_isIncome,
-                            color: Colors.red.shade600,
+                            color: const Color(0xFFE53935),
                             onTap: () => setState(() {
                               _isIncome = false;
                               _selectedCategory = null;
@@ -382,25 +692,51 @@ class _BalancePageState extends State<BalancePage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                      ],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 22),
-                      decoration: InputDecoration(
-                        hintText: '0.00',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _kCard,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.,]')),
+                        ],
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: _kText,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                            vertical: 16, horizontal: 16),
+                        decoration: InputDecoration(
+                          hintText: '0.00',
+                          hintStyle: const TextStyle(
+                            color: _kTextSub,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          contentPadding: const EdgeInsets.symmetric(
+                              vertical: 18, horizontal: 16),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     _CategoryGrid(
                       categories: _displayCategories,
                       selected: _selectedCategory,
@@ -409,25 +745,44 @@ class _BalancePageState extends State<BalancePage> {
                       onMore: _openCategoryPicker,
                       isIncome: _isIncome,
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
+                    const SizedBox(height: 18),
+                    Container(
                       width: double.infinity,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _apply,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: actionColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradColors,
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
                         ),
-                        child: const Text(
-                          'Применить',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w600),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: actionColor.withOpacity(0.38),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _apply,
+                          borderRadius: BorderRadius.circular(28),
+                          child: const Center(
+                            child: Text(
+                              'Применить',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -459,8 +814,6 @@ class _AccountSelectorSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -472,26 +825,37 @@ class _AccountSelectorSheet extends StatelessWidget {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: scheme.outlineVariant,
+                color: _kTextSub.withOpacity(0.35),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
             const Text(
               'Счета',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: _kText),
             ),
             const SizedBox(height: 8),
             ...accounts.map((acc) {
               final isSelected = acc.id == currentAccountId;
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: isSelected
-                      ? scheme.primary
-                      : scheme.surfaceContainerHighest,
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: isSelected
+                        ? const LinearGradient(
+                            colors: [_kPrimary, _kPrimaryLight],
+                          )
+                        : null,
+                    color: isSelected ? null : _kBg,
+                    shape: BoxShape.circle,
+                  ),
                   child: Icon(
                     Icons.account_balance_wallet_outlined,
-                    color: isSelected ? scheme.onPrimary : scheme.onSurface,
+                    color: isSelected ? Colors.white : _kTextSub,
                     size: 20,
                   ),
                 ),
@@ -500,10 +864,11 @@ class _AccountSelectorSheet extends StatelessWidget {
                   style: TextStyle(
                     fontWeight:
                         isSelected ? FontWeight.w700 : FontWeight.normal,
+                    color: _kText,
                   ),
                 ),
                 trailing: isSelected
-                    ? Icon(Icons.check, color: scheme.primary)
+                    ? const Icon(Icons.check_circle, color: _kPrimary)
                     : null,
                 onTap: () {
                   Navigator.pop(context);
@@ -511,13 +876,22 @@ class _AccountSelectorSheet extends StatelessWidget {
                 },
               );
             }),
-            const Divider(height: 1),
+            Divider(height: 1, color: _kBg),
             ListTile(
-              leading: CircleAvatar(
-                backgroundColor: scheme.surfaceContainerHighest,
-                child: Icon(Icons.add, color: scheme.onSurface, size: 20),
+              leading: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _kPrimary.withOpacity(0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.add, color: _kPrimary, size: 20),
               ),
-              title: const Text('Добавить счет'),
+              title: const Text(
+                'Добавить счет',
+                style: TextStyle(
+                    color: _kPrimary, fontWeight: FontWeight.w600),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 onAddTap();
@@ -549,11 +923,11 @@ class _SegmentButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: selected ? color : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Text(
             label,
@@ -561,9 +935,7 @@ class _SegmentButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: selected
-                  ? Colors.white
-                  : Theme.of(context).colorScheme.onSurface,
+              color: selected ? Colors.white : _kTextSub,
             ),
           ),
         ),
@@ -643,8 +1015,8 @@ class _CategoryItem extends StatelessWidget {
                   ? [
                       BoxShadow(
                         color: category.color.withOpacity(0.55),
-                        blurRadius: 10,
-                        spreadRadius: 1,
+                        blurRadius: 12,
+                        spreadRadius: 2,
                       )
                     ]
                   : null,
@@ -662,6 +1034,7 @@ class _CategoryItem extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
+              color: _kText,
               fontWeight:
                   isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
@@ -680,8 +1053,6 @@ class _MoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        isIncome ? const Color(0xFF2E7D32) : const Color(0xFFBDBDBD);
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -692,7 +1063,13 @@ class _MoreButton extends StatelessWidget {
             height: 54,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color,
+              gradient: LinearGradient(
+                colors: isIncome
+                    ? [const Color(0xFF43A047), const Color(0xFF81C784)]
+                    : [_kPrimary, _kPrimaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
             child: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
@@ -700,7 +1077,7 @@ class _MoreButton extends StatelessWidget {
           const Text(
             'Ещё',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11),
+            style: TextStyle(fontSize: 11, color: _kTextSub),
           ),
         ],
       ),
@@ -721,41 +1098,49 @@ class _DatePickerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     const presets = ['Сегодня', 'Вчера', 'Последняя'];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+        color: _kCard,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
       ),
       child: Row(
         children: [
           ...presets.map((label) {
             final isSelected = selected == label;
             return Padding(
-              padding: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.only(right: 8),
               child: GestureDetector(
                 onTap: () => onSelect(label),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                  duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 7),
+                      horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? scheme.primary
-                        : scheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(20),
+                    gradient: isSelected
+                        ? const LinearGradient(
+                            colors: [_kPrimary, _kPrimaryLight],
+                          )
+                        : null,
+                    color: isSelected ? null : _kBg,
+                    borderRadius: BorderRadius.circular(24),
                   ),
                   child: Text(
                     label,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? scheme.onPrimary
-                          : scheme.onSurface,
+                      color: isSelected ? Colors.white : _kTextSub,
                     ),
                   ),
                 ),
@@ -764,28 +1149,37 @@ class _DatePickerBar extends StatelessWidget {
           }),
           if (!presets.contains(selected))
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: scheme.primary,
-                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                    colors: [_kPrimary, _kPrimaryLight]),
+                borderRadius: BorderRadius.circular(24),
               ),
               child: Text(
                 selected,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: scheme.onPrimary,
+                  color: Colors.white,
                 ),
               ),
             ),
           const Spacer(),
-          IconButton(
-            onPressed: onCalendar,
-            icon: Icon(Icons.calendar_today_outlined,
-                color: scheme.onSurface, size: 22),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _kPrimary.withOpacity(0.10),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: onCalendar,
+              icon: const Icon(Icons.calendar_today_rounded,
+                  color: _kPrimary, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ),
         ],
       ),
@@ -834,50 +1228,73 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final accentColor =
-        widget.isIncome ? Colors.green.shade700 : scheme.primary;
-
     return Scaffold(
+      backgroundColor: _kBg,
       appBar: AppBar(
-        title: Text(
-            widget.isIncome ? 'Категория дохода' : 'Добавить категорию'),
-        centerTitle: true,
+        backgroundColor: _kCard,
         elevation: 0,
-        foregroundColor: widget.isIncome ? Colors.green.shade800 : null,
+        title: Text(
+          widget.isIncome ? 'Категория дохода' : 'Добавить категорию',
+          style: const TextStyle(
+            color: _kText,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: _kPrimary),
+        shape: const RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.vertical(bottom: Radius.circular(20)),
+        ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
-                hintText: 'Поиск категории',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: scheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _kCard,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  hintText: 'Поиск категории',
+                  hintStyle: const TextStyle(color: _kTextSub),
+                  prefixIcon:
+                      const Icon(Icons.search, color: _kTextSub),
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 0, horizontal: 16),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
               ),
             ),
           ),
           Expanded(
             child: _filtered.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       'Ничего не найдено',
-                      style: TextStyle(
-                          color: scheme.onSurface.withOpacity(0.5)),
+                      style: TextStyle(color: _kTextSub),
                     ),
                   )
                 : GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
@@ -898,24 +1315,249 @@ class _CategoryPickerPageState extends State<CategoryPickerPage> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: SizedBox(
+            child: Container(
               width: double.infinity,
-              height: 50,
-              child: OutlinedButton.icon(
-                onPressed: _showCreateDialog,
-                icon: Icon(Icons.add, color: accentColor),
-                label: Text(
-                  'Создать',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: accentColor,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [_kPrimary, _kPrimaryLight]),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: _kPrimary.withOpacity(0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _showCreateDialog,
+                  borderRadius: BorderRadius.circular(28),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Создать',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: accentColor),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WalletsSheet extends StatelessWidget {
+  final List<Account> accounts;
+  final List<Transaction> transactions;
+  final String currentAccountId;
+  final void Function(Account) onSelect;
+  final VoidCallback onAddTap;
+
+  const _WalletsSheet({
+    required this.accounts,
+    required this.transactions,
+    required this.currentAccountId,
+    required this.onSelect,
+    required this.onAddTap,
+  });
+
+  double _balanceFor(String accountId) {
+    return transactions
+        .where((t) => t.accountId == accountId)
+        .fold(0.0, (sum, t) => sum + (t.isIncome ? t.amount : -t.amount));
+  }
+
+  String _fmtBalance(double v) {
+    return '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)} ₽';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.80),
+      decoration: const BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _kTextSub.withOpacity(0.35),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Мои счета',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: _kText,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: accounts.length,
+              itemBuilder: (context, i) {
+                final acc = accounts[i];
+                final balance = _balanceFor(acc.id);
+                final isSelected = acc.id == currentAccountId;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GestureDetector(
+                    onTap: () => onSelect(acc),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [_kPrimary, _kPrimaryLight],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: isSelected ? null : _kBg,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: _kPrimary.withOpacity(0.30),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                )
+                              ]
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withOpacity(0.22)
+                                  : _kPrimary.withOpacity(0.10),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.account_balance_wallet_rounded,
+                              color: isSelected ? Colors.white : _kPrimary,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  acc.name,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : _kText,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isSelected
+                                      ? 'Активный счёт'
+                                      : 'Нажмите для переключения',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isSelected
+                                        ? Colors.white70
+                                        : _kTextSub,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            _fmtBalance(balance),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: isSelected ? Colors.white : _kText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad + 16),
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                border: Border.all(color: _kPrimary, width: 1.5),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onAddTap,
+                  borderRadius: BorderRadius.circular(28),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_rounded, color: _kPrimary),
+                      SizedBox(width: 8),
+                      Text(
+                        'Добавить новый счёт',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: _kPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -947,20 +1589,30 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedColor = widget.isIncome
-        ? const Color(0xFF2E7D32)
-        : const Color(0xFF1E88E5);
+    _selectedColor =
+        widget.isIncome ? const Color(0xFF2E7D32) : _kPrimary;
   }
 
   static const _colors = [
-    Color(0xFFE53935), Color(0xFF43A047), Color(0xFF1E88E5),
-    Color(0xFF8E24AA), Color(0xFFFF7043), Color(0xFFEC407A),
-    Color(0xFF00ACC1), Color(0xFFF9A825),
+    Color(0xFFE53935),
+    Color(0xFF43A047),
+    Color(0xFF1E88E5),
+    Color(0xFF6C5DD3),
+    Color(0xFFFF7043),
+    Color(0xFFEC407A),
+    Color(0xFF00ACC1),
+    Color(0xFFF9A825),
   ];
 
   static const _icons = [
-    Icons.star, Icons.favorite, Icons.home, Icons.work,
-    Icons.directions_car, Icons.flight, Icons.shopping_bag, Icons.local_cafe,
+    Icons.star,
+    Icons.favorite,
+    Icons.home,
+    Icons.work,
+    Icons.directions_car,
+    Icons.flight,
+    Icons.shopping_bag,
+    Icons.local_cafe,
   ];
 
   @override
@@ -972,21 +1624,39 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Новая категория'),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: _kCard,
+      title: const Text(
+        'Новая категория',
+        style:
+            TextStyle(color: _kText, fontWeight: FontWeight.w700),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           TextField(
             controller: _nameController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Название',
-              border: OutlineInputBorder(),
+              hintStyle: const TextStyle(color: _kTextSub),
+              filled: true,
+              fillColor: _kBg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
             ),
           ),
           const SizedBox(height: 14),
           const Text('Цвет',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kText)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1002,7 +1672,8 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
                           shape: BoxShape.circle,
                           color: c,
                           border: _selectedColor == c
-                              ? Border.all(color: Colors.black87, width: 2.5)
+                              ? Border.all(
+                                  color: _kText, width: 2.5)
                               : null,
                         ),
                       ),
@@ -1011,30 +1682,38 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
           ),
           const SizedBox(height: 14),
           const Text('Иконка',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _kText)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: _icons
                 .map((ic) => GestureDetector(
-                      onTap: () => setState(() => _selectedIcon = ic),
+                      onTap: () =>
+                          setState(() => _selectedIcon = ic),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _selectedIcon == ic
-                              ? _selectedColor
-                              : Colors.grey.shade200,
+                          gradient: _selectedIcon == ic
+                              ? const LinearGradient(
+                                  colors: [_kPrimary, _kPrimaryLight],
+                                )
+                              : null,
+                          color:
+                              _selectedIcon == ic ? null : _kBg,
                         ),
                         child: Icon(
                           ic,
                           size: 20,
                           color: _selectedIcon == ic
                               ? Colors.white
-                              : Colors.grey.shade600,
+                              : _kTextSub,
                         ),
                       ),
                     ))
@@ -1045,18 +1724,41 @@ class _CreateCategoryDialogState extends State<_CreateCategoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: const Text('Отмена',
+              style: TextStyle(color: _kTextSub)),
         ),
-        FilledButton(
-          onPressed: () {
-            final name = _nameController.text.trim();
-            if (name.isEmpty) return;
-            widget.onCreated(
-              Category(
-                  name: name, icon: _selectedIcon, color: _selectedColor),
-            );
-          },
-          child: const Text('Создать'),
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [_kPrimary, _kPrimaryLight]),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                final name = _nameController.text.trim();
+                if (name.isEmpty) return;
+                widget.onCreated(
+                  Category(
+                      name: name,
+                      icon: _selectedIcon,
+                      color: _selectedColor),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: const Padding(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'Создать',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );

@@ -1,5 +1,14 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'models.dart';
+
+const _kPrimary = Color(0xFF6C5DD3);
+const _kPrimaryLight = Color(0xFFC1B9F9);
+const _kBg = Color(0xFFF8F9FE);
+const _kCard = Color(0xFFFFFFFF);
+const _kText = Color(0xFF1A1D2E);
+const _kTextSub = Color(0xFF9BA3AF);
+const _kDivider = Color(0xFFEEEEF5);
 
 const _kMonths = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -37,9 +46,9 @@ class StatisticsPage extends StatefulWidget {
 }
 
 class _StatisticsPageState extends State<StatisticsPage> {
-  static const _bg = Color(0xFF0E1018);
-  static const _surface = Color(0xFF181B27);
-  static const _divider = Color(0xFF252840);
+  static const _bg = _kBg;
+  static const _surface = _kCard;
+  static const _divider = _kDivider;
 
   final _periods = const ['День', 'Неделя', 'Месяц', 'Год', 'Период'];
   String _period = 'Месяц';
@@ -63,8 +72,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
       });
 
   String get _navLabel => switch (_period) {
-        'День' =>
-          '${_ref.day} ${_kMonths[_ref.month - 1]} ${_ref.year}',
+        'День' => '${_ref.day} ${_kMonths[_ref.month - 1]} ${_ref.year}',
         'Неделя' => _weekLabel(),
         'Месяц' => '${_kMonths[_ref.month - 1]} ${_ref.year}',
         'Год' => '${_ref.year}',
@@ -175,21 +183,24 @@ class _StatisticsPageState extends State<StatisticsPage> {
             Container(height: 1, color: _divider),
             Expanded(
               child: totals.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text(
                         'Нет данных',
-                        style: TextStyle(
-                            color: const Color(0xFF4B5068), fontSize: 16),
+                        style: TextStyle(color: _kTextSub, fontSize: 16),
                       ),
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
                       children: [
-                        _ColorBar(totals: totals, total: total),
-                        const SizedBox(height: 8),
-                        _TotalRow(
-                            total: total, fmt: _fmt, isIncome: _isIncome),
-                        const SizedBox(height: 20),
+                        Center(
+                          child: _DonutChart(
+                            totals: totals,
+                            total: total,
+                            fmt: _fmt,
+                            isIncome: _isIncome,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
                         ...totals.map(
                           (t) => _CategoryRow(
                             cat: t,
@@ -228,8 +239,8 @@ class _TypeToggle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF252840),
-          borderRadius: BorderRadius.circular(10),
+          color: _kBg,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           children: [
@@ -274,10 +285,13 @@ class _ToggleBtn extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? activeColor.withOpacity(0.18) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            color: selected
+                ? activeColor.withOpacity(0.13)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
             border: selected
-                ? Border.all(color: activeColor.withOpacity(0.5), width: 1)
+                ? Border.all(
+                    color: activeColor.withOpacity(0.40), width: 1)
                 : null,
           ),
           child: Text(
@@ -286,7 +300,7 @@ class _ToggleBtn extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: selected ? activeColor : const Color(0xFF4B5068),
+              color: selected ? activeColor : _kTextSub,
             ),
           ),
         ),
@@ -326,9 +340,10 @@ class _PeriodTabs extends StatelessWidget {
                 Text(
                   p,
                   style: TextStyle(
-                    color: sel ? Colors.white : const Color(0xFF4B5068),
+                    color: sel ? _kPrimary : _kTextSub,
                     fontSize: 13,
-                    fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight:
+                        sel ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -337,7 +352,10 @@ class _PeriodTabs extends StatelessWidget {
                   height: 2,
                   width: sel ? 30 : 0,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    gradient: sel
+                        ? const LinearGradient(
+                            colors: [_kPrimary, _kPrimaryLight])
+                        : null,
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -377,7 +395,7 @@ class _NavRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Icon(
                 Icons.chevron_left,
-                color: showArrows ? Colors.white : Colors.transparent,
+                color: showArrows ? _kPrimary : Colors.transparent,
                 size: 28,
               ),
             ),
@@ -385,7 +403,7 @@ class _NavRow extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white,
+              color: _kText,
               fontSize: 18,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.2,
@@ -397,7 +415,7 @@ class _NavRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Icon(
                 Icons.chevron_right,
-                color: showArrows ? Colors.white : Colors.transparent,
+                color: showArrows ? _kPrimary : Colors.transparent,
                 size: 28,
               ),
             ),
@@ -408,64 +426,115 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-class _ColorBar extends StatelessWidget {
+class _DonutChart extends StatelessWidget {
   final List<_CatTotal> totals;
-  final double total;
-
-  const _ColorBar({required this.totals, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        height: 22,
-        child: Row(
-          children: totals
-              .map(
-                (t) => Expanded(
-                  flex: ((t.amount / total) * 1000).round().clamp(1, 1000),
-                  child: Container(color: Color(t.color)),
-                ),
-              )
-              .toList(),
-        ),
-      ),
-    );
-  }
-}
-
-class _TotalRow extends StatelessWidget {
   final double total;
   final String Function(double) fmt;
   final bool isIncome;
 
-  const _TotalRow(
-      {required this.total, required this.fmt, required this.isIncome});
+  const _DonutChart({
+    required this.totals,
+    required this.total,
+    required this.fmt,
+    required this.isIncome,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return SizedBox(
+      width: 220,
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(
-            isIncome ? 'Доходы' : 'Расходы',
-            style: const TextStyle(color: Color(0xFF4B5068), fontSize: 13),
+          CustomPaint(
+            size: const Size(220, 220),
+            painter: _DonutPainter(totals: totals, total: total),
           ),
-          Text(
-            '${fmt(total)} ₽',
-            style: const TextStyle(
-              color: Color(0xFF4B5068),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isIncome ? 'Доходы' : 'Расходы',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _kTextSub,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${fmt(total)} ₽',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: _kText,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<_CatTotal> totals;
+  final double total;
+
+  _DonutPainter({required this.totals, required this.total});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final outerRadius = size.width / 2 - 6;
+    final strokeWidth = outerRadius * 0.34;
+    final r = outerRadius - strokeWidth / 2;
+
+    double startAngle = -math.pi / 2;
+
+    for (final t in totals) {
+      final sweep = (t.amount / total) * 2 * math.pi;
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt
+        ..color = Color(t.color);
+
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: r),
+        startAngle + 0.025,
+        sweep - 0.05,
+        false,
+        paint,
+      );
+      startAngle += sweep;
+    }
+
+    final bgPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = _kBg;
+
+    if (totals.length == 1) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: r),
+        -math.pi / 2,
+        2 * math.pi,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..color = Color(totals.first.color),
+      );
+    }
+    bgPaint.color = Colors.transparent;
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.totals != totals || old.total != total;
 }
 
 class _CategoryRow extends StatelessWidget {
@@ -483,9 +552,22 @@ class _CategoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final pct = total > 0 ? cat.amount / total * 100 : 0.0;
     final icon = IconData(cat.iconCode, fontFamily: cat.fontFamily);
+    final catColor = Color(cat.color);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Container(
@@ -493,57 +575,59 @@ class _CategoryRow extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(cat.color),
+              color: catColor.withOpacity(0.14),
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: catColor, size: 22),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  cat.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        cat.name,
+                        style: const TextStyle(
+                          color: _kText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${pct.toStringAsFixed(1)}%',
+                      style: const TextStyle(
+                        color: _kTextSub,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: total > 0 ? cat.amount / total : 0,
-                    backgroundColor: const Color(0xFF252840),
+                    backgroundColor: _kBg,
                     valueColor:
-                        AlwaysStoppedAnimation<Color>(Color(cat.color)),
-                    minHeight: 4,
+                        AlwaysStoppedAnimation<Color>(catColor),
+                    minHeight: 5,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: 44,
-            child: Text(
-              '${pct.toStringAsFixed(1)}%',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Text(
             '${fmt(cat.amount)} ₽',
             style: const TextStyle(
-              color: Colors.white,
+              color: _kText,
               fontSize: 15,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

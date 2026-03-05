@@ -1,5 +1,19 @@
 import 'package:flutter/material.dart';
 
+class Account {
+  final String id;
+  final String name;
+
+  const Account({required this.id, required this.name});
+
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+
+  factory Account.fromJson(Map<String, dynamic> json) => Account(
+        id: json['id'] as String,
+        name: json['name'] as String,
+      );
+}
+
 class Category {
   final String name;
   final IconData icon;
@@ -16,6 +30,7 @@ class Transaction {
   final String categoryFontFamily;
   final int categoryColor;
   final String date;
+  final String accountId;
 
   Transaction({
     required this.amount,
@@ -25,6 +40,7 @@ class Transaction {
     required this.categoryFontFamily,
     required this.categoryColor,
     required this.date,
+    required this.accountId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -35,6 +51,7 @@ class Transaction {
         'categoryFontFamily': categoryFontFamily,
         'categoryColor': categoryColor,
         'date': date,
+        'accountId': accountId,
       };
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
@@ -46,6 +63,7 @@ class Transaction {
             json['categoryFontFamily'] as String? ?? 'MaterialIcons',
         categoryColor: json['categoryColor'] as int,
         date: json['date'] as String,
+        accountId: json['accountId'] as String? ?? 'main',
       );
 }
 

@@ -43,6 +43,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
 
   final _periods = const ['День', 'Неделя', 'Месяц', 'Год', 'Период'];
   String _period = 'Месяц';
+  bool _isIncome = false;
   late DateTime _ref;
 
   @override
@@ -116,7 +117,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
   List<_CatTotal> get _totals {
     final map = <String, _CatTotal>{};
     for (final t in widget.transactions) {
-      if (t.isIncome) continue;
+      if (t.isIncome != _isIncome) continue;
       final d = _parseDate(t.date);
       if (d == null || !_inPeriod(d)) continue;
       map.update(
@@ -160,6 +161,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
               surface: _surface,
               onSelect: (p) => setState(() => _period = p),
             ),
+            _TypeToggle(
+              isIncome: _isIncome,
+              surface: _surface,
+              onToggle: (v) => setState(() => _isIncome = v),
+            ),
             _NavRow(
               label: _navLabel,
               showArrows: _period != 'Период',
@@ -169,10 +175,11 @@ class _StatisticsPageState extends State<StatisticsPage> {
             Container(height: 1, color: _divider),
             Expanded(
               child: totals.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'Нет данных',
-                        style: TextStyle(color: Color(0xFF4B5068), fontSize: 16),
+                        style: TextStyle(
+                            color: const Color(0xFF4B5068), fontSize: 16),
                       ),
                     )
                   : ListView(
@@ -180,7 +187,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       children: [
                         _ColorBar(totals: totals, total: total),
                         const SizedBox(height: 8),
-                        _TotalRow(total: total, fmt: _fmt),
+                        _TotalRow(
+                            total: total, fmt: _fmt, isIncome: _isIncome),
                         const SizedBox(height: 20),
                         ...totals.map(
                           (t) => _CategoryRow(
@@ -193,6 +201,94 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeToggle extends StatelessWidget {
+  final bool isIncome;
+  final Color surface;
+  final void Function(bool) onToggle;
+
+  const _TypeToggle({
+    required this.isIncome,
+    required this.surface,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const expenseColor = Color(0xFFEF5350);
+    const incomeColor = Color(0xFF26C17B);
+
+    return Container(
+      color: surface,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF252840),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            _ToggleBtn(
+              label: 'Расходы',
+              selected: !isIncome,
+              activeColor: expenseColor,
+              onTap: () => onToggle(false),
+            ),
+            _ToggleBtn(
+              label: 'Доходы',
+              selected: isIncome,
+              activeColor: incomeColor,
+              onTap: () => onToggle(true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToggleBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _ToggleBtn({
+    required this.label,
+    required this.selected,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? activeColor.withOpacity(0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: selected
+                ? Border.all(color: activeColor.withOpacity(0.5), width: 1)
+                : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? activeColor : const Color(0xFF4B5068),
+            ),
+          ),
         ),
       ),
     );
@@ -245,6 +341,7 @@ class _PeriodTabs extends StatelessWidget {
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
+                const SizedBox(height: 10),
               ],
             ),
           );
@@ -341,8 +438,10 @@ class _ColorBar extends StatelessWidget {
 class _TotalRow extends StatelessWidget {
   final double total;
   final String Function(double) fmt;
+  final bool isIncome;
 
-  const _TotalRow({required this.total, required this.fmt});
+  const _TotalRow(
+      {required this.total, required this.fmt, required this.isIncome});
 
   @override
   Widget build(BuildContext context) {
@@ -351,9 +450,9 @@ class _TotalRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Расходы',
-            style: TextStyle(color: Color(0xFF4B5068), fontSize: 13),
+          Text(
+            isIncome ? 'Доходы' : 'Расходы',
+            style: const TextStyle(color: Color(0xFF4B5068), fontSize: 13),
           ),
           Text(
             '${fmt(total)} ₽',

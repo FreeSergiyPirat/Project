@@ -36,6 +36,16 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
   List<Transaction> _transactions = [];
+  List<Account> _accounts = [const Account(id: 'main', name: 'Основной')];
+  String _currentAccountId = 'main';
+
+  Account get _currentAccount => _accounts.firstWhere(
+        (a) => a.id == _currentAccountId,
+        orElse: () => _accounts.first,
+      );
+
+  List<Transaction> get _currentTransactions =>
+      _transactions.where((t) => t.accountId == _currentAccountId).toList();
 
   @override
   void initState() {
@@ -45,15 +55,24 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('transactions');
-    if (raw != null) {
-      final list = jsonDecode(raw) as List;
-      setState(() {
+    final rawTx = prefs.getString('transactions');
+    final rawAccounts = prefs.getString('accounts');
+
+    setState(() {
+      if (rawAccounts != null) {
+        final list = jsonDecode(rawAccounts) as List;
+        final loaded = list
+            .map((e) => Account.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (loaded.isNotEmpty) _accounts = loaded;
+      }
+      if (rawTx != null) {
+        final list = jsonDecode(rawTx) as List;
         _transactions = list
             .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
             .toList();
-      });
-    }
+      }
+    });
   }
 
   Future<void> _save() async {
@@ -62,10 +81,28 @@ class _AppShellState extends State<AppShell> {
       'transactions',
       jsonEncode(_transactions.map((t) => t.toJson()).toList()),
     );
+    await prefs.setString(
+      'accounts',
+      jsonEncode(_accounts.map((a) => a.toJson()).toList()),
+    );
   }
 
   void _add(Transaction t) {
     setState(() => _transactions.add(t));
+    _save();
+  }
+
+  void _selectAccount(Account account) {
+    setState(() => _currentAccountId = account.id);
+  }
+
+  void _addAccount(String name) {
+    final id = 'acc_${DateTime.now().millisecondsSinceEpoch}';
+    final account = Account(id: id, name: name);
+    setState(() {
+      _accounts.add(account);
+      _currentAccountId = id;
+    });
     _save();
   }
 
@@ -75,8 +112,15 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _index,
         children: [
-          BalancePage(transactions: _transactions, onAdd: _add),
-          StatisticsPage(transactions: _transactions),
+          BalancePage(
+            transactions: _currentTransactions,
+            currentAccount: _currentAccount,
+            accounts: _accounts,
+            onAdd: _add,
+            onAccountSelect: _selectAccount,
+            onAddAccount: _addAccount,
+          ),
+          StatisticsPage(transactions: _currentTransactions),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -101,12 +145,20 @@ class _AppShellState extends State<AppShell> {
 
 class BalancePage extends StatefulWidget {
   final List<Transaction> transactions;
+  final Account currentAccount;
+  final List<Account> accounts;
   final void Function(Transaction) onAdd;
+  final void Function(Account) onAccountSelect;
+  final void Function(String) onAddAccount;
 
   const BalancePage({
     super.key,
     required this.transactions,
+    required this.currentAccount,
+    required this.accounts,
     required this.onAdd,
+    required this.onAccountSelect,
+    required this.onAddAccount,
   });
 
   @override
@@ -137,8 +189,59 @@ class _BalancePageState extends State<BalancePage> {
       categoryFontFamily: _selectedCategory!.icon.fontFamily ?? 'MaterialIcons',
       categoryColor: _selectedCategory!.color.value,
       date: _selectedDate,
+      accountId: widget.currentAccount.id,
     ));
     _amountController.clear();
+  }
+
+  void _showAccountSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AccountSelectorSheet(
+        accounts: widget.accounts,
+        currentAccountId: widget.currentAccount.id,
+        onSelect: (acc) {
+          widget.onAccountSelect(acc);
+        },
+        onAddTap: _showAddAccountDialog,
+      ),
+    );
+  }
+
+  void _showAddAccountDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Новый счет'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Название счета',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = ctrl.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(context);
+              widget.onAddAccount(name);
+            },
+            child: const Text('Создать'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openCategoryPicker() async {
@@ -206,6 +309,29 @@ class _BalancePageState extends State<BalancePage> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Column(
                   children: [
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: _showAccountSheet,
+                      behavior: HitTestBehavior.opaque,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.currentAccount.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: scheme.onSurface.withOpacity(0.7),
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Баланс',
@@ -310,6 +436,92 @@ class _BalancePageState extends State<BalancePage> {
               selected: _selectedDate,
               onSelect: (d) => setState(() => _selectedDate = d),
               onCalendar: _pickDate,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSelectorSheet extends StatelessWidget {
+  final List<Account> accounts;
+  final String currentAccountId;
+  final void Function(Account) onSelect;
+  final VoidCallback onAddTap;
+
+  const _AccountSelectorSheet({
+    required this.accounts,
+    required this.currentAccountId,
+    required this.onSelect,
+    required this.onAddTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Счета',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            ...accounts.map((acc) {
+              final isSelected = acc.id == currentAccountId;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isSelected
+                      ? scheme.primary
+                      : scheme.surfaceContainerHighest,
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: isSelected ? scheme.onPrimary : scheme.onSurface,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  acc.name,
+                  style: TextStyle(
+                    fontWeight:
+                        isSelected ? FontWeight.w700 : FontWeight.normal,
+                  ),
+                ),
+                trailing: isSelected
+                    ? Icon(Icons.check, color: scheme.primary)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  onSelect(acc);
+                },
+              );
+            }),
+            const Divider(height: 1),
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: scheme.surfaceContainerHighest,
+                child: Icon(Icons.add, color: scheme.onSurface, size: 20),
+              ),
+              title: const Text('Добавить счет'),
+              onTap: () {
+                Navigator.pop(context);
+                onAddTap();
+              },
             ),
           ],
         ),
